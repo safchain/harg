@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "Manchester.h"
 #include "srts.h"
 #include "homeasy.h"
 
@@ -11,6 +12,9 @@ enum {
 #define RF_SENDER_PIN       3
 #define RF_RECEIVER_PIN     4
 #define BLINK_PIN           12
+
+uint8_t data[sizeof(struct homeasy_payload) + 1];
+struct homeasy_payload *homeasy = (struct homeasy_payload *)(data + 1);
 
 char req_buff[256];
 unsigned int req_off = 0;
@@ -28,6 +32,9 @@ void setup()
   pinMode(RF_RECEIVER_PIN, INPUT);
   last_time = micros();
   last_type = HIGH;
+
+  man.setupReceive(RF_RECEIVER_PIN, MAN_1200);
+  man.beginReceiveArray(sizeof(struct homeasy_payload) + 1, data);
 }
 
 void send_homeasy_payload(struct homeasy_payload *payload)
@@ -76,6 +83,11 @@ void loop()
 
   receiveMessage();
 
+  if (man.receiveComplete()) {
+    send_homeasy_payload(homeasy);
+
+    man.beginReceiveArray(sizeof(struct homeasy_payload) + 1, data);
+  }
 
   type = digitalRead(RF_RECEIVER_PIN);
   if (type != last_type) {
@@ -107,7 +119,7 @@ void handleRequest(unsigned char type, unsigned short address1,
   if (type == HOMEASY) {
     homeasy_transmit(RF_SENDER_PIN, address1, address2, receiver, ctrl, 0, repeat);
   } else if (type == SRTS) {
-    homeasy_transmit(RF_SENDER_PIN, address1, address2, receiver, ctrl, 0, repeat);
+    srts_transmit(RF_SENDER_PIN, address1, address2, receiver, ctrl, code, repeat);
   }
 }
 
