@@ -14,8 +14,8 @@
  * 02110-1301, USA.
  */
 
-#ifndef __HOMEASY_H
-#define __HOMEASY_H
+#ifndef __HOMEMADE_H
+#define __HOMEMADE_H
 
 #if defined(__AVR__) || defined(__avr__)
 #include "Arduino.h"
@@ -27,28 +27,23 @@
 extern "C"{
 #endif
 
-enum HOMEASY_COMMAND {
-  HOMEASY_OFF,
-  HOMEASY_ON,
-  HOMEASY_UNKNOWN
+enum HOMEMADE_COMMAND {
+  HOMEMADE_OFF,
+  HOMEMADE_ON,
+  HOMEMADE_FLOAT,
+  HOMEMADE_UNKNOWN
 };
 
-struct homeasy_payload {
+struct homemade_payload {
   /* use short since arduino is limit to 16bits */
   unsigned short address1;
   unsigned short address2;
   unsigned char receiver;
   unsigned char ctrl;
-  unsigned char group;
+  unsigned char size;
+  /* extra info not used by the original protocol */
+  char data[32];
 };
-
-void homeasy_transmit(unsigned int gpio, unsigned short address1,
-        unsigned short address2, unsigned char receiver, unsigned char ctrl,
-        unsigned char group, unsigned int repeat);
-unsigned char homeasy_get_ctrl_int(const char *ctrl);
-const char *homeasy_get_ctrl_str(unsigned char ctrl);
-int homeasy_receive(unsigned int gpio, unsigned int type,
-        unsigned int duration, struct homeasy_payload *payload);
 
 #ifdef __cplusplus
 } // extern "C"

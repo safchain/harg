@@ -207,14 +207,14 @@ static void write_bit(unsigned int gpio, unsigned char bit)
 {
   if (bit) {
     digitalWrite(gpio, LOW);
-    delayMicroseconds(660);
+    delayMicroseconds(640);
     digitalWrite(gpio, HIGH);
-    delayMicroseconds(660);
+    delayMicroseconds(640);
   } else {
     digitalWrite(gpio, HIGH);
-    delayMicroseconds(660);
+    delayMicroseconds(640);
     digitalWrite(gpio, LOW);
-    delayMicroseconds(660);
+    delayMicroseconds(640);
   }
 }
 
@@ -251,16 +251,18 @@ static void sync_transmit(unsigned int gpio, unsigned int repeated)
     count = 7;
   } else {
     digitalWrite(gpio, HIGH);
-    delayMicroseconds(12400);
+    delayMicroseconds(9450);
     digitalWrite(gpio, LOW);
-    delayMicroseconds(14000);
+    delayMicroseconds(30000);
+    delayMicroseconds(30000);
+    delayMicroseconds(30000);
     count = 2;
   }
   for (i = 0; i != count; i++) {
     digitalWrite(gpio, HIGH);
-    delayMicroseconds(2560);
+    delayMicroseconds(2415);
     digitalWrite(gpio, LOW);
-    delayMicroseconds(2560);
+    delayMicroseconds(2415);
   }
 }
 
@@ -273,9 +275,9 @@ void srts_transmit(unsigned int gpio, unsigned char key,
   sync_transmit(gpio, repeated);
 
   digitalWrite(gpio, HIGH);
-  delayMicroseconds(4800);
+  delayMicroseconds(4550);
   digitalWrite(gpio, LOW);
-  delayMicroseconds(660);
+  delayMicroseconds(640);
 
   if (!key) {
     key = rand() % 255;
