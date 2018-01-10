@@ -4,21 +4,28 @@
 #include <avr/sleep.h>
 #include <EmonLib.h>
 
-#define MAX_ENTRIES 10
+#ifndef cbi
+#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
+#endif
+#ifndef sbi
+#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
+#endif
+
+#define MAX_ENTRIES 5
 #define LED_PIN 0
 #define TX_PIN 3
 #define CT_PIN A1
+#define CT_POWER 1
 
 EnergyMonitor emon1;
 
 // Incremented by watchdog interrupt
-volatile uint8_t wdt_count;
+volatile uint8_t wdt_count = 0;
 
 enum COMMAND {
   HOMEMADE_OFF,
   HOMEMADE_ON,
-  HOMEMADE_FLOAT,
-  HOMEMADE_UNKNOWN
+  HOMEMADE_FLOAT
 };
 
 struct homemade_payload {
@@ -27,9 +34,10 @@ struct homemade_payload {
   unsigned short address2;
   unsigned char receiver;
   unsigned char ctrl;
-  unsigned char group;
+  unsigned char code;
+  unsigned char size;
   /* extra info not used by the original protocol */
-  char data[10];
+  char data[32];
 };
 
 double entries[MAX_ENTRIES];
@@ -60,9 +68,7 @@ double deviation(double *entries, int n, double avg)
 
 void measure() 
 {
-  // Enable ADC
-  ADCSRA |= (1 << ADEN); 
-  ADCSRA |= (1 << ADSC);
+  digitalWrite(CT_POWER, HIGH);
 
   for (int i = 0; i != MAX_ENTRIES; i++) {
     digitalWrite(LED_PIN, HIGH);
@@ -76,12 +82,8 @@ void measure()
     }
     entries[i] = w;
   }
-  
-  // Disable ADC  
-  ACSR |= _BV(ACD);                         
-  ADCSRA &= ~_BV(ADEN);
-  
-  digitalWrite(LED_PIN, LOW);
+
+  digitalWrite(CT_POWER, LOW);
 
   double a = avg(entries, MAX_ENTRIES);
   double v = deviation(entries, MAX_ENTRIES, a);
@@ -96,11 +98,12 @@ void measure()
   
   data[0] = sizeof(struct homemade_payload);
 
-  homemade->address1 = 999;
-  homemade->address2 = 888;
+  homemade->address1 = 111;
+  homemade->address2 = 111;
   homemade->receiver = 0;
   homemade->ctrl = HOMEMADE_FLOAT;
-  homemade->group = 0;
+  homemade->code = 0;
+  homemade->size = 4;
 
   int f1 = int(a);
   float f2 = a - f1;
@@ -110,77 +113,84 @@ void measure()
   memset(homemade->data, 0, sizeof(homemade->data));
   sprintf(homemade->data, "%02x%02x", i1, i2);
 
-  for (int i = 0; i != 10; i++) {
+  for (int i = 0; i != 5; i++) {
     digitalWrite(LED_PIN, LOW);
     delay(20);
     digitalWrite(LED_PIN, HIGH);
     delay(20);
   }
   
-  delay(2000);
+  delay(500);
   
   man.transmitArray(sizeof(struct homemade_payload), data);
   digitalWrite(LED_PIN, LOW);
-  
-  
-  delay(2000);
 }
 
 void setup() {
-  OSCCAL += 3;
-  
-  ADMUX &= (0<<REFS0); //Setting reference voltage to internal 1.1V
-  
-  ADCSRA &= ~_BV(ADEN);  // switch ADC OFF
-  ACSR  |= _BV(ACD);     // switch Analog Compartaror OFF
-  
-  // Configure attiny85 sleep mode
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-  // Reset watchdog interrupt counter
-  wdt_count = 255; //max value
-  
   // Configure pin modes
   pinMode(LED_PIN, OUTPUT);
   pinMode(TX_PIN, OUTPUT);
   pinMode(CT_PIN, INPUT);
+  pinMode(CT_POWER, OUTPUT);
+
+  digitalWrite(CT_POWER, LOW);
 
   man.workAround1MhzTinyCore();
   man.setupTransmit(TX_PIN, MAN_1200);
-  
+
   emon1.current(CT_PIN, 60);
 }
 
 void loop() {
-  measure();
-  
-  wdt_count = 0;
-  watchdog_start_interrupt(6);      // prescale of 6 ~= 1sec
-  while(wdt_count < 10) {            // Wait 10 watchdog interupts (~10secs)
-    sleep_mode();                   // Make CPU sleep until next WDT interrupt
+  if (wdt_count == 0) {
+    measure();
   }
-  watchdog_stop();
+
+  setup_watchdog(8);
+  system_sleep();
+
+  if (wdt_count > 5) {
+    wdt_count = 0;
+  }
 }
 
-void watchdog_stop() {
-  WDTCR |= _BV(WDCE) | _BV(WDE);
-  WDTCR = 0x00;
+// set system into the sleep state
+// system wakes up when wtchdog is timed out
+void system_sleep() {
+  cbi(ADCSRA,ADEN);                    // switch Analog to Digitalconverter OFF
+
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // sleep mode is set here
+  sleep_enable();
+
+  sleep_mode();                        // System sleeps here
+
+  sleep_disable();                     // System continues execution here when watchdog timed out
+  sbi(ADCSRA, ADEN);                   // switch Analog to Digitalconverter ON
 }
 
-void watchdog_start_interrupt(uint8_t wd_prescaler) {
-  if(wd_prescaler > 9) 
-    wd_prescaler = 9;
-  byte _prescaler = wd_prescaler & 0x7;
-  if (wd_prescaler > 7 ) 
-    _prescaler |= _BV(WDP3); 
-  // set new watchdog timer prescaler value
-  WDTCR = _prescaler;
+// 0=16ms, 1=32ms,2=64ms,3=128ms,4=250ms,5=500ms
+// 6=1 sec,7=2 sec, 8=4 sec, 9= 8sec
+void setup_watchdog(int ii) {
+  byte bb;
+  int ww;
 
+  if (ii > 9)
+    ii = 9;
+  bb = ii & 7;
+  if (ii > 7)
+    bb|= (1 << 5);
+  bb|= (1 << WDCE);
+  ww = bb;
+
+  MCUSR &= ~(1 << WDRF);
   // start timed sequence
-  WDTCR |= _BV(WDIE) | _BV(WDCE) | _BV(WDE);
+  WDTCR |= (1 << WDCE) | (1 << WDE);
+  // set new watchdog timeout value
+  WDTCR = bb;
+  WDTCR |= _BV(WDIE);
 }
 
 // Watchdog Interrupt Service / is executed when watchdog timed out
 ISR(WDT_vect) {
-  wdt_count++;
-  WDTCR |= _BV(WDIE);           // Watchdog goes to interrupt not reset
+  wdt_count++;  // set global flag
 }

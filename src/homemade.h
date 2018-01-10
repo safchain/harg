@@ -40,6 +40,7 @@ struct homemade_payload {
   unsigned short address2;
   unsigned char receiver;
   unsigned char ctrl;
+  unsigned char code;
   unsigned char size;
   /* extra info not used by the original protocol */
   char data[32];

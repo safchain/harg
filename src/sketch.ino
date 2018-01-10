@@ -54,6 +54,8 @@ void send_homeasy_payload(struct homeasy_payload *payload)
   Serial.print(payload->receiver);
   Serial.print(" ");
   Serial.print(payload->ctrl);
+  Serial.print(" ");
+  Serial.print("0");
   Serial.println("");
 }
 
@@ -68,12 +70,13 @@ void send_homemade_payload(struct homemade_payload *payload)
   Serial.print(payload->receiver);
   Serial.print(" ");
   Serial.print(payload->ctrl);
+  Serial.print(" ");
+  Serial.print(payload->code);
   if (payload->ctrl > HOMEMADE_ON) {
     Serial.print(" ");
     if (payload->size > sizeof(payload->data)) {
-	Serial.println(0);
+	Serial.println(999);
         return;
-
     }
     Serial.print(payload->size);
     Serial.print(" ");
