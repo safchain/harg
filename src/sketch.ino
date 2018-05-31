@@ -12,9 +12,13 @@ enum {
   HOMEMADE
 };
 
+//#define DEBUG_ENABLE
+
 #define RF_SENDER_PIN       3
 #define RF_RECEIVER_PIN     4
 #define BLINK_PIN           12
+#define RF_POWER            5
+#define SENDER_BLINK        6
 
 uint8_t homemade_data[sizeof(struct homemade_payload) + 1];
 struct homemade_payload *homemade = (struct homemade_payload *)(homemade_data + 1);
@@ -38,6 +42,11 @@ void setup()
   last_time = micros();
   last_type = HIGH;
 
+  pinMode(RF_POWER, OUTPUT);
+  digitalWrite(RF_POWER, HIGH);
+
+  pinMode(SENDER_BLINK, OUTPUT);
+
   memset(homemade_data, 0, sizeof(homemade_data));
   man.setupReceive(RF_RECEIVER_PIN, MAN_1200);
   man.beginReceiveArray(sizeof(struct homeasy_payload) + 1, homemade_data);
@@ -57,6 +66,7 @@ void send_homeasy_payload(struct homeasy_payload *payload)
   Serial.print(" ");
   Serial.print("0");
   Serial.println("");
+  Serial.flush();
 }
 
 void send_homemade_payload(struct homemade_payload *payload)
@@ -86,6 +96,7 @@ void send_homemade_payload(struct homemade_payload *payload)
     }
   }
   Serial.println("");
+  Serial.flush();
 }
 
 
@@ -106,6 +117,7 @@ void send_srts_payload(struct srts_payload *payload) {
   Serial.print(" ");
   Serial.print(payload->code);
   Serial.println("");
+  Serial.flush();
 }
 
 void blink()
@@ -119,15 +131,18 @@ void blink()
   digitalWrite(BLINK_PIN, LOW);
 }
 
+struct srts_payload srts_payload;
+struct homeasy_payload homeasy_payload;
+
 void loop()
 {
-  struct srts_payload srts_payload;
-  struct homeasy_payload homeasy_payload;
   unsigned int type, duration;
   unsigned long now;
   int rc = 0;
 
+  digitalWrite(SENDER_BLINK, LOW);
   receive_message();
+  digitalWrite(SENDER_BLINK, HIGH);
 
   if (man.receiveComplete()) {
     send_homemade_payload(homemade);
@@ -147,12 +162,14 @@ void loop()
     if (rc == 1) {
       send_srts_payload(&srts_payload);
       blink();
+      memset(&srts_payload, 0, sizeof(&srts_payload));
     }
 
     rc = homeasy_receive(RF_RECEIVER_PIN, last_type, duration, &homeasy_payload);
     if (rc == 1) {
       send_homeasy_payload(&homeasy_payload);
       blink();
+      memset(&homeasy_payload, 0, sizeof(&homeasy_payload));
     }
 
     last_type = type;
@@ -165,11 +182,21 @@ void handle_request(unsigned char type, unsigned short address1,
                    unsigned char repeat)
 {
   if (type == HOMEASY) {
-    homeasy_transmit(RF_SENDER_PIN, address1, address2, receiver, ctrl, 0, repeat);
-  } else if (type == SRTS) {
-    srts_transmit(RF_SENDER_PIN, address1, address2, receiver, ctrl, code, repeat);
-  }
+    digitalWrite(RF_POWER, LOW);
 
+    delay(200);
+    homeasy_transmit(RF_SENDER_PIN, address1, address2, receiver, ctrl, 0, repeat);
+    delay(200);
+  } else if (type == SRTS) {
+    digitalWrite(RF_POWER, LOW);
+
+    delay(200);
+    srts_transmit(RF_SENDER_PIN, address1, address2, receiver, ctrl, code, repeat);
+    delay(200);
+  }
+  digitalWrite(RF_POWER, HIGH);
+
+#ifdef DEBUG_ENABLE
   Serial.print(DEBUG);
   Serial.print(" ");
   Serial.print(address1);
@@ -184,6 +211,8 @@ void handle_request(unsigned char type, unsigned short address1,
   Serial.print(" ");
   Serial.print(repeat);
   Serial.println("");
+  Serial.flush();
+#endif
 }
 
 void receive_message()
@@ -204,12 +233,15 @@ void receive_message()
       req_off = 0;
 
       if (strlen(req_buff) > 0) {
-        sscanf(req_buff, "%hu %hu %hu %hu %hu %hu %hhu",
+        sscanf(req_buff, "%4hu %4hu %4hu %4hu %4hu %4hu %2hu",
                &type, &address1, &address2, &receiver, &ctrl, &code, &repeat);
 
         handle_request(type, address1, address2, receiver, ctrl, code, repeat);
       }
     } else {
+      if (req_off > 250) {
+	req_off = 0;
+      }
       req_buff[req_off++] = c;
     }
   }
