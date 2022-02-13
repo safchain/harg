@@ -31,6 +31,8 @@
 
 #include "srts.h"
 
+#define SYMBOL 620
+
 #define IS_ON_TIME(X, I, A) X >= I && X <= A
 
 #if !defined(__AVR__) && !defined(__avr__)
@@ -207,14 +209,14 @@ static void write_bit(unsigned int gpio, unsigned char bit)
 {
   if (bit) {
     digitalWrite(gpio, LOW);
-    delayMicroseconds(640);
+    delayMicroseconds(SYMBOL);
     digitalWrite(gpio, HIGH);
-    delayMicroseconds(640);
+    delayMicroseconds(SYMBOL);
   } else {
     digitalWrite(gpio, HIGH);
-    delayMicroseconds(640);
+    delayMicroseconds(SYMBOL);
     digitalWrite(gpio, LOW);
-    delayMicroseconds(640);
+    delayMicroseconds(SYMBOL);
   }
 }
 
@@ -240,7 +242,7 @@ static void write_payload(unsigned int gpio, struct srts_payload *payload)
 static void write_interval_gap(int gpio)
 {
   digitalWrite(gpio, LOW);
-  delayMicroseconds(30400);
+  delayMicroseconds(30415);
 }
 
 static void sync_transmit(unsigned int gpio, unsigned int repeated)
@@ -251,18 +253,19 @@ static void sync_transmit(unsigned int gpio, unsigned int repeated)
     count = 7;
   } else {
     digitalWrite(gpio, HIGH);
-    delayMicroseconds(9450);
+    delayMicroseconds(9415);
     digitalWrite(gpio, LOW);
-    delayMicroseconds(30000);
-    delayMicroseconds(30000);
-    delayMicroseconds(30000);
+    delayMicroseconds(22391);
+    delayMicroseconds(22391);
+    delayMicroseconds(22391);
+    delayMicroseconds(22391);
     count = 2;
   }
   for (i = 0; i != count; i++) {
     digitalWrite(gpio, HIGH);
-    delayMicroseconds(2415);
+    delayMicroseconds(4*SYMBOL);
     digitalWrite(gpio, LOW);
-    delayMicroseconds(2415);
+    delayMicroseconds(4*SYMBOL);
   }
 }
 
@@ -275,9 +278,9 @@ void srts_transmit(unsigned int gpio, unsigned char key,
   sync_transmit(gpio, repeated);
 
   digitalWrite(gpio, HIGH);
-  delayMicroseconds(4550);
+  delayMicroseconds(SYMBOL*7);
   digitalWrite(gpio, LOW);
-  delayMicroseconds(640);
+  delayMicroseconds(SYMBOL);
 
   if (!key) {
     key = rand() % 255;

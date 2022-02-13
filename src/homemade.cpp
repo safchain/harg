@@ -31,7 +31,7 @@
 #include "homemade.h"
 
 void homemade_transmit(unsigned int gpio, unsigned short address1,
-        unsigned short address2, unsigned char receiver, unsigned char ctrl)
+        unsigned short address2, unsigned char receiver, unsigned char ctrl, unsigned char code)
 {
   unsigned char data[sizeof(struct homemade_payload) + 1];
   struct homemade_payload *homemade = (struct homemade_payload *)(data + 1);
@@ -42,7 +42,7 @@ void homemade_transmit(unsigned int gpio, unsigned short address1,
   homemade->address2 = address2;
   homemade->ctrl = ctrl;
   homemade->receiver = receiver;
-  homemade->code = 0;
+  homemade->code = code;
   homemade->size = 0;
 
   memset(homemade->data, 0, sizeof(homemade->data));

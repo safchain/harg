@@ -129,16 +129,12 @@ static int detect_sync(unsigned int gpio, unsigned int type,
     init = 1;
   }
 
-  if (!type && sync[gpio] == 1 && IS_ON_TIME(*duration, 10200, 10800)) {
-    sync[gpio] = 2;
-  } else if (type && sync[gpio] == 2 && IS_ON_TIME(*duration, 150, 350)) {
-    sync[gpio] = 3;
-  } else if (!type && sync[gpio] == 3 && IS_ON_TIME(*duration, 2500, 2900)) {
+  if (type && sync[gpio] == 0 && IS_ON_TIME(*duration, 150, 350)) {
+    sync[gpio] = 1;
+  } else if (!type && sync[gpio] == 1 && IS_ON_TIME(*duration, 2500, 2900)) {
     sync[gpio] = 0;
 
     return 1;
-  } else if (type && IS_ON_TIME(*duration, 150, 350)) {
-    sync[gpio] = 1;
   } else {
     sync[gpio] = 0;
   }

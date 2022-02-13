@@ -46,6 +46,9 @@ struct homemade_payload {
   char data[32];
 };
 
+void homemade_transmit(unsigned int gpio, unsigned short address1,
+        unsigned short address2, unsigned char receiver, unsigned char ctrl, unsigned char code);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
